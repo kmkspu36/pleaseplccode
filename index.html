@@ -2,25 +2,101 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>AI Creative Agent</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex; flex-direction: column;
+      height: 100vh; height: 100dvh;
+      font-family: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+      background: #f3f4f6; color: #111827;
+    }
+    .app {
+      display: flex; flex-direction: column; flex: 1; min-height: 0;
+      width: 100%; max-width: 960px; margin: 0 auto;
+      background: #fff;
+    }
+    header { padding: 12px 16px; font-weight: 600; border-bottom: 1px solid #e5e7eb; flex: none; }
+    #status {
+      flex: none; margin: 0; padding: 10px 16px; font-size: 14px;
+      background: #eff6ff; color: #1e40af; display: flex; gap: 12px; align-items: center;
+    }
+    #status[hidden] { display: none; }
+    #status.error { background: #fef2f2; color: #991b1b; }
+    #status.warn { background: #fffbeb; color: #92400e; }
+    #status button {
+      margin-left: auto; padding: 6px 12px; border: 1px solid currentColor;
+      background: transparent; color: inherit; border-radius: 6px; cursor: pointer; font: inherit;
+    }
+    #status button[hidden] { display: none; }
+    /* Web Chat fills the remaining height: messages scroll, send box stays at the bottom. */
+    #webchat { flex: 1; min-height: 0; position: relative; }
+    #webchat > * { height: 100%; }
+    @media (min-width: 961px) {
+      body { padding: 16px; }
+      .app { border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.1); overflow: hidden; }
+    }
+    @media (max-width: 600px) {
+      header { padding: 10px 12px; font-size: 15px; }
+      #status { padding: 8px 12px; font-size: 13px; }
+      .app { padding-bottom: env(safe-area-inset-bottom); }
+    }
+  </style>
 </head>
 <body>
-  <p id="status" role="status" aria-live="polite">채팅에 연결하는 중입니다...</p>
-  <div id="webchat" style="height: 600px"></div>
+  <div class="app">
+    <header>AI Creative Agent</header>
+    <p id="status" role="status" aria-live="polite"><span id="statusText">채팅에 연결하는 중입니다...</span><button id="retry" type="button" hidden>다시 시도</button></p>
+    <div id="webchat"></div>
+  </div>
   <script src="https://cdn.botframework.com/botframework-webchat/4.18.0/webchat.js"></script>
+  <script src="config.js"></script>
   <script>
-    const BROKER_URL = "https://dl-broker-juwon-4jt3z.azurewebsites.net/api/directlineToken";
-    // TODO: 배포 시 실제 SEALED 값으로 교체 (저장소에 커밋하지 마세요)
-    const SEALED = "REPLACE_WITH_SEALED_VALUE";
+    const { BROKER_URL, SEALED } = window.PANELLAB_CONFIG || {};
     const status = document.getElementById("status");
+    const statusText = document.getElementById("statusText");
+    const retryButton = document.getElementById("retry");
+    let connecting = false;
 
-    function showError(message) {
+    function showStatus(message, kind, retry) {
       status.hidden = false;
-      status.textContent = message;
+      status.className = kind || "";
+      statusText.textContent = message;
+      retryButton.hidden = !retry;
+    }
+    function showError(message) { showStatus(message, "error", true); }
+
+    // ConnectionStatus: 0 Uninitialized, 1 Connecting, 2 Online, 3 ExpiredToken, 4 FailedToConnect, 5 Ended
+    function watchConnection(directLine) {
+      directLine.connectionStatus$.subscribe({
+        next: (s) => {
+          if (s === 1) showStatus("채팅에 연결하는 중입니다...");
+          else if (s === 2) status.hidden = true;
+          else if (s === 3) showStatus("연결 토큰이 만료되었습니다. 다시 시도해 주세요.", "error", true);
+          else if (s === 4) showStatus("채팅 서버에 연결하지 못했습니다. 네트워크를 확인해 주세요.", "error", true);
+          else if (s === 5) showStatus("대화가 종료되었습니다.", "warn", true);
+        }
+      });
     }
 
     async function connect() {
+      if (connecting) return;
+      connecting = true;
+      try {
+        await start();
+      } finally {
+        connecting = false;
+      }
+    }
+
+    async function start() {
+      showStatus("채팅에 연결하는 중입니다...");
+      if (!BROKER_URL || !SEALED) {
+        showError("설정(config.js)을 찾을 수 없습니다. config.example.js를 참고해 주세요.");
+        return;
+      }
       if (!window.WebChat ||
           typeof WebChat.createDirectLine !== "function" ||
           typeof WebChat.renderWebChat !== "function") {
@@ -58,18 +134,31 @@
 
       try {
         const directLine = WebChat.createDirectLine({ token: data.token });
-        status.hidden = true;
+        watchConnection(directLine);
         directLine.postActivity({
           type: "event", name: "startConversation", from: { id: "user" }
         }).subscribe({
-          error: () => showError("첫 인사를 요청하지 못했습니다. 채팅창에 메시지를 입력해 주세요.")
+          error: () => showStatus("첫 인사를 요청하지 못했습니다. 채팅창에 메시지를 입력해 주세요.", "warn", false)
         });
-        WebChat.renderWebChat({ directLine, locale: "ko-KR" }, document.getElementById("webchat"));
+        const root = document.getElementById("webchat");
+        root.replaceChildren();
+        WebChat.renderWebChat({
+          directLine,
+          locale: "ko-KR",
+          styleOptions: {
+            rootHeight: "100%",
+            rootWidth: "100%",
+            hideUploadButton: false,
+            sendBoxHeight: 48,
+            bubbleMaxWidth: 560
+          }
+        }, root);
       } catch {
         showError("채팅을 시작하지 못했습니다. 새로고침 후 다시 시도해 주세요.");
       }
     }
 
+    retryButton.addEventListener("click", connect);
     connect();
   </script>
 </body>
