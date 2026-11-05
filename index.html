@@ -3,443 +3,162 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>PanelLab · AI Creative Agent</title>
-  <style>
-    :root {
-      --navy: #0b1b3a; --navy-2: #12285a; --blue: #2563eb; --violet: #7c3aed;
-      --bg: #f5f7fb; --card: #fff; --line: #e3e8f2; --text: #0f1b33; --muted: #5b6785;
-      --grad: linear-gradient(135deg, var(--blue), var(--violet));
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; }
-    body {
-      font-family: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
-      background: var(--bg); color: var(--text); overflow-x: hidden;
-    }
-    button { font: inherit; cursor: pointer; }
-    .layout {
-      display: grid; height: 100vh; height: 100dvh;
-      grid-template-columns: 240px minmax(0, 1fr) 400px;
-      grid-template-rows: 60px minmax(0, 1fr);
-      grid-template-areas: "top top top" "side main chat";
-    }
-
-    /* Top bar */
-    .topbar {
-      grid-area: top; display: flex; align-items: center; gap: 14px; padding: 0 16px;
-      background: #fff; border-bottom: 1px solid var(--line);
-    }
-    .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
-    .logo i { width: 32px; height: 32px; border-radius: 9px; background: var(--grad); display: inline-block; }
-    .project-info { color: var(--muted); font-size: 14px; margin-left: 8px; }
-    .project-info b { color: var(--text); }
-    .spacer { flex: 1; }
-    .conn { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 12px; border-radius: 999px; background: #eef2ff; color: #3730a3; }
-    .conn::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
-    .conn.online { background: #ecfdf5; color: #047857; }
-    .conn.error { background: #fef2f2; color: #b91c1c; }
-    .conn.warn { background: #fffbeb; color: #b45309; }
-    .icon-btn { display: none; border: 1px solid var(--line); background: #fff; border-radius: 8px; height: 40px; min-width: 40px; padding: 0 10px; }
-
-    /* Sidebar */
-    .sidebar {
-      grid-area: side; background: var(--navy); color: #cbd5f5; padding: 14px 10px;
-      overflow-y: auto; -webkit-overflow-scrolling: touch;
-    }
-    .sidebar button {
-      display: block; width: 100%; text-align: left; padding: 11px 12px; margin-bottom: 4px;
-      border: 0; border-radius: 8px; background: transparent; color: inherit; font-size: 14px;
-    }
-    .sidebar button:hover { background: var(--navy-2); }
-    .sidebar button.active { background: var(--grad); color: #fff; font-weight: 600; }
-    .sidebar hr { border: 0; border-top: 1px solid #243a6e; margin: 10px 0; }
-    .backdrop { display: none; }
-
-    /* Main */
-    main { grid-area: main; overflow-y: auto; padding: 24px; min-width: 0; }
-    .view { display: none; max-width: 860px; margin: 0 auto; }
-    .view.active { display: block; }
-    h1 { margin: 0 0 6px; font-size: 22px; }
-    .lead { color: var(--muted); margin: 0 0 18px; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
-    .card h2 { margin: 0 0 8px; font-size: 16px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-    .tile { text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-    .tile:hover { border-color: var(--blue); }
-    .tile b { display: block; margin-bottom: 4px; }
-    .tile span { color: var(--muted); font-size: 13px; }
-    textarea, input[type=text] {
-      width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: inherit; background: #fff;
-    }
-    textarea { min-height: 180px; resize: vertical; font-family: Consolas, "Courier New", monospace; font-size: 13px; }
-    .primary { border: 0; border-radius: 8px; padding: 10px 16px; background: var(--grad); color: #fff; font-weight: 600; }
-    .ghost { border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; background: #fff; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-    .badge { display: inline-block; font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; margin-bottom: 10px; }
-    .note { font-size: 13px; color: var(--muted); }
-    .log-item { border-bottom: 1px solid var(--line); padding: 8px 0; font-size: 14px; }
-    .log-item small { color: var(--muted); display: block; }
-
-    /* Chat panel: messages scroll, send box stays at the bottom */
-    .chat { grid-area: chat; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #fff; border-left: 1px solid var(--line); }
-    .chat-head { flex: none; padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
-    .chat-head .close { margin-left: auto; display: none; padding: 6px 12px; }
-    #status { flex: none; margin: 0; padding: 10px 14px; font-size: 13px; background: #eff6ff; color: #1e40af; display: flex; gap: 10px; align-items: center; }
-    #status[hidden] { display: none; }
-    #status.error { background: #fef2f2; color: #991b1b; }
-    #status.warn { background: #fffbeb; color: #92400e; }
-    #status button { margin-left: auto; padding: 6px 12px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; }
-    #status button[hidden] { display: none; }
-    #webchat { flex: 1; min-height: 0; position: relative; }
-    #webchat > * { height: 100%; }
-    .fab { display: none; }
-
-    /* Tablet */
-    @media (max-width: 1100px) {
-      .layout { grid-template-columns: 220px minmax(0, 1fr); grid-template-areas: "top top" "side main"; }
-      .chat {
-        position: fixed; top: 60px; right: 0; bottom: 0; width: min(420px, 100vw); z-index: 30;
-        transform: translateX(100%); transition: transform .2s; box-shadow: -4px 0 20px rgba(0,0,0,.15);
-      }
-      body.chat-open .chat { transform: none; }
-      .fab {
-        display: block; position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 25;
-        border: 0; border-radius: 999px; padding: 14px 20px; background: var(--grad); color: #fff; font-weight: 600;
-        box-shadow: 0 6px 20px rgba(37,99,235,.4);
-      }
-      body.chat-open .fab { display: none; }
-      .chat-head .close { display: block; }
-    }
-    /* Mobile */
-    @media (max-width: 720px) {
-      .layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "main"; }
-      .icon-btn { display: inline-block; }
-      .project-info { display: none; }
-      .sidebar {
-        position: fixed; top: 60px; left: 0; bottom: 0; width: 260px; z-index: 40;
-        transform: translateX(-100%); transition: transform .2s;
-      }
-      body.menu-open .sidebar { transform: none; }
-      body.menu-open .backdrop { display: block; position: fixed; inset: 60px 0 0 0; background: rgba(0,0,0,.4); z-index: 35; }
-      main { padding: 16px; }
-      .chat { width: 100vw; padding-bottom: env(safe-area-inset-bottom); }
-      .conn { font-size: 12px; padding: 5px 9px; }
-    }
-  </style>
+  <title>PanelLab · PLC Engineering AI Workspace</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="layout">
     <header class="topbar">
       <button class="icon-btn" id="menuBtn" type="button" aria-label="메뉴 열기">☰</button>
-      <div class="logo"><i></i>PanelLab</div>
+      <div class="logo"><i></i>PanelLab <small>PLC Engineering AI</small></div>
       <div class="project-info">프로젝트: <b id="projectName">미지정</b></div>
       <div class="spacer"></div>
       <div class="conn" id="conn" role="status" aria-live="polite">연결 중</div>
     </header>
 
     <nav class="sidebar" id="sidebar" aria-label="주 메뉴">
-      <button type="button" data-view="home" class="active">통합 작업실</button>
+      <button type="button" data-view="home" class="active">대시보드 · AI 통합 작업실</button>
       <button type="button" data-view="write">PLC 코드 작성</button>
-      <button type="button" data-view="analyze">PLC 오류 분석</button>
-      <button type="button" data-view="fix">PLC 오류 수정</button>
+      <button type="button" data-view="analyze">오류 검사</button>
+      <button type="button" data-view="fix">자동 오류 수정</button>
       <button type="button" data-view="ladder">래더 작화</button>
       <button type="button" data-view="drawing">도면 분석</button>
       <hr>
       <button type="button" data-view="project">프로젝트 관리</button>
       <button type="button" data-view="history">작업 기록</button>
-      <button type="button" data-view="help">설정 및 도움말</button>
+      <button type="button" data-view="help">설정</button>
     </nav>
     <div class="backdrop" id="backdrop"></div>
 
     <main id="main">
-      <section class="view active" id="view-home">
-        <h1>통합 작업실</h1>
-        <p class="lead">작업을 선택하면 요청 문구가 오른쪽 AI 채팅 입력창에 채워집니다. 내용을 확인한 뒤 직접 전송하세요.</p>
-        <div class="grid">
-          <button class="tile" type="button" data-view="write"><b>PLC 코드 작성</b><span>요구사항으로 PLC 코드 요청</span></button>
-          <button class="tile" type="button" data-view="analyze"><b>PLC 오류 분석</b><span>코드와 오류 증상 분석 요청</span></button>
-          <button class="tile" type="button" data-view="fix"><b>PLC 오류 수정</b><span>오류 코드의 수정안 요청</span></button>
-          <button class="tile" type="button" data-view="drawing"><b>도면 분석</b><span>채팅에 도면 파일 첨부</span></button>
-        </div>
-      </section>
+      <div class="workbench" id="workbench">
+        <section class="view active" id="view-home">
+          <h1>PanelLab에 오신 것을 환영합니다</h1>
+          <p class="lead">미쓰비시 PLC(GX Works2 / GX Works3) 작업을 하나의 AI 채팅에서 요청하세요. 작업을 선택하면 요청 문구가 채팅 입력창에 채워지며, 내용을 확인한 뒤 직접 전송합니다.</p>
+          <div class="grid">
+            <button class="tile" type="button" data-view="write"><b>PLC 코드 작성</b><span>요구사항으로 PLC 코드 요청</span></button>
+            <button class="tile" type="button" data-view="analyze"><b>오류 검사</b><span>코드와 오류 증상 분석 요청</span></button>
+            <button class="tile" type="button" data-view="fix"><b>자동 오류 수정</b><span>오류 코드의 수정안 요청</span></button>
+            <button class="tile" type="button" data-view="ladder"><b>래더 작화</b><span>래더 표현 요청 (미구현)</span></button>
+            <button class="tile" type="button" data-view="drawing"><b>도면 분석</b><span>채팅에 도면 파일 첨부</span></button>
+          </div>
+        </section>
 
-      <section class="view" id="view-write">
-        <h1>PLC 코드 작성</h1>
-        <p class="lead">제어 요구사항을 입력하면 AI 채팅 입력창으로 요청을 보냅니다.</p>
-        <div class="card">
-          <label for="writeReq">요구사항 (PLC 제조사/언어, 입출력, 동작 조건)</label>
-          <textarea id="writeReq" placeholder="예: 미쓰비시 FX5U, 래더. 시작 버튼을 누르면 모터가 켜지고 정지 버튼으로 꺼집니다."></textarea>
-          <div class="row"><button class="primary" type="button" data-send="write">채팅 입력창에 넣기</button></div>
-        </div>
-      </section>
+        <section class="view" id="view-write">
+          <h1>PLC 코드 작성</h1>
+          <p class="lead">제어 요구사항을 입력하면 AI 채팅 입력창으로 요청을 보냅니다.</p>
+          <div class="card">
+            <label for="writeReq">요구사항 (PLC 제조사/언어, 입출력, 동작 조건)</label>
+            <textarea id="writeReq" placeholder="예: 미쓰비시 FX5U, 래더. 시작 버튼을 누르면 모터가 켜지고 정지 버튼으로 꺼집니다."></textarea>
+            <div class="row"><button class="primary" type="button" data-send="write">채팅 입력창에 넣기</button></div>
+          </div>
+        </section>
 
-      <section class="view" id="view-analyze">
-        <h1>PLC 오류 분석</h1>
-        <p class="lead">코드와 오류 증상을 입력하세요.</p>
-        <div class="card">
-          <label for="analyzeCode">PLC 코드 / 오류 내용</label>
-          <textarea id="analyzeCode" placeholder="코드와 발생한 오류 메시지를 붙여 넣으세요."></textarea>
-          <div class="row"><button class="primary" type="button" data-send="analyze">채팅 입력창에 넣기</button></div>
-        </div>
-      </section>
+        <section class="view" id="view-analyze">
+          <h1>오류 검사</h1>
+          <p class="lead">코드와 오류 증상을 입력하세요.</p>
+          <div class="card">
+            <label for="analyzeCode">PLC 코드 / 오류 내용</label>
+            <textarea id="analyzeCode" placeholder="코드와 발생한 오류 메시지를 붙여 넣으세요."></textarea>
+            <div class="row"><button class="primary" type="button" data-send="analyze">채팅 입력창에 넣기</button></div>
+          </div>
+        </section>
 
-      <section class="view" id="view-fix">
-        <h1>PLC 오류 수정</h1>
-        <p class="lead">오류가 있는 코드를 입력하세요.</p>
-        <div class="card">
-          <label for="fixCode">오류가 있는 PLC 코드</label>
-          <textarea id="fixCode" placeholder="수정이 필요한 코드와 기대 동작을 입력하세요."></textarea>
-          <div class="row"><button class="primary" type="button" data-send="fix">채팅 입력창에 넣기</button></div>
-        </div>
-      </section>
+        <section class="view" id="view-fix">
+          <h1>자동 오류 수정</h1>
+          <p class="lead">오류가 있는 코드를 입력하세요. 원본은 자동으로 덮어쓰이지 않습니다.</p>
+          <div class="card">
+            <label for="fixCode">오류가 있는 PLC 코드</label>
+            <textarea id="fixCode" placeholder="수정이 필요한 코드와 기대 동작을 입력하세요."></textarea>
+            <div class="row"><button class="primary" type="button" data-send="fix">채팅 입력창에 넣기</button></div>
+          </div>
+        </section>
 
-      <section class="view" id="view-ladder">
-        <h1>래더 작화</h1>
-        <div class="card">
-          <span class="badge">미구현</span>
-          <p>래더 다이어그램을 그리는 전용 화면은 아직 구현되지 않았습니다. 에이전트가 래더 작화를 지원하는지도 확인되지 않았습니다.</p>
-          <p class="note">래더 로직 설명은 "PLC 코드 작성" 메뉴에서 일반 채팅 요청으로 시도할 수 있습니다.</p>
-        </div>
-      </section>
+        <section class="view" id="view-ladder">
+          <h1>래더 작화</h1>
+          <div class="card">
+            <span class="badge">미구현</span>
+            <p>래더 다이어그램 미리보기는 아직 구현되지 않았습니다. 에이전트가 래더 작화를 지원하는지도 확인되지 않았습니다.</p>
+            <p class="note">래더 로직 설명은 "PLC 코드 작성"에서 일반 채팅 요청으로 시도할 수 있습니다.</p>
+          </div>
+        </section>
 
-      <section class="view" id="view-drawing">
-        <h1>도면 분석</h1>
-        <div class="card">
-          <span class="badge">지원 여부 미확인</span>
-          <p>도면 파일은 오른쪽 채팅창의 클립(첨부) 버튼으로 보낼 수 있습니다. 에이전트가 첨부 파일을 실제로 읽을 수 있는지는 아직 검증되지 않았습니다.</p>
-          <div class="row"><button class="primary" type="button" data-send="drawing">분석 요청 문구 넣기</button></div>
-        </div>
-      </section>
+        <section class="view" id="view-drawing">
+          <h1>도면 분석</h1>
+          <div class="card">
+            <span class="badge">지원 여부 미확인</span>
+            <p>도면 파일은 채팅 입력창의 첨부 버튼으로 보낼 수 있습니다. 에이전트가 첨부 파일을 실제로 읽을 수 있는지는 아직 검증되지 않았습니다.</p>
+            <div class="row"><button class="primary" type="button" data-send="drawing">분석 요청 문구 넣기</button></div>
+          </div>
+        </section>
 
-      <section class="view" id="view-project">
-        <h1>프로젝트 관리</h1>
-        <p class="lead">프로젝트 이름은 이 브라우저에만 저장됩니다. 서버나 에이전트와는 연동되지 않습니다.</p>
-        <div class="card">
-          <label for="projectInput">프로젝트 이름</label>
-          <input type="text" id="projectInput" maxlength="60" placeholder="예: 포장 라인 1호기">
-          <div class="row"><button class="primary" type="button" id="saveProject">저장</button></div>
-        </div>
-      </section>
+        <section class="view" id="view-project">
+          <h1>프로젝트 관리</h1>
+          <p class="lead">프로젝트 이름은 이 브라우저에만 저장됩니다. 서버나 에이전트, 다른 기기와는 동기화되지 않습니다.</p>
+          <div class="card">
+            <label for="projectInput">프로젝트 이름</label>
+            <input type="text" id="projectInput" maxlength="60" placeholder="예: 포장 라인 1호기">
+            <div class="row"><button class="primary" type="button" id="saveProject">저장</button></div>
+          </div>
+        </section>
 
-      <section class="view" id="view-history">
-        <h1>작업 기록</h1>
-        <p class="lead">이 화면에서 채팅 입력창에 넣은 요청의 기록입니다. 이 브라우저에만 저장되며 에이전트 대화 기록과는 별개입니다.</p>
-        <div class="card"><div id="historyList"></div>
-          <div class="row"><button class="ghost" type="button" id="clearHistory">기록 지우기</button></div></div>
-      </section>
+        <section class="view" id="view-history">
+          <h1>작업 기록</h1>
+          <p class="lead">이 화면에서 채팅 입력창에 넣은 요청의 기록입니다. 이 브라우저에만 저장되며 에이전트 대화 기록과는 별개입니다.</p>
+          <div class="card"><div id="historyList"></div>
+            <div class="row"><button class="ghost" type="button" id="clearHistory">기록 지우기</button></div></div>
+        </section>
 
-      <section class="view" id="view-help">
-        <h1>설정 및 도움말</h1>
-        <div class="card">
-          <h2>AI 연결</h2>
-          <p>통합 Copilot Studio 에이전트에 Direct Line 토큰 방식으로 연결합니다. 연결 상태는 상단 오른쪽에 표시됩니다.</p>
-          <p class="note">연결이 끊기면 채팅창의 "다시 시도"를 누르세요. 요청은 채팅창에서 직접 전송해야 합니다.</p>
-        </div>
+        <section class="view" id="view-help">
+          <h1>설정</h1>
+          <div class="card">
+            <h2>AI 연결</h2>
+            <p>통합 Copilot Studio 에이전트에 Direct Line 토큰 방식으로 연결합니다. 연결 상태는 상단 오른쪽에 표시됩니다.</p>
+            <p class="note">연결이 끊기면 채팅창의 "다시 시도"를 누르세요. 요청은 채팅창에서 직접 전송해야 합니다.</p>
+          </div>
+        </section>
+      </div>
+      <button class="ghost toggle-wb" id="toggleWb" type="button" aria-expanded="true">작업 입력 영역 접기</button>
+
+      <section class="chat" aria-label="AI 통합 채팅">
+        <div class="chat-head">AI 통합 채팅</div>
+        <p id="status" role="status" aria-live="polite"><span id="statusText">채팅에 연결하는 중입니다...</span><button id="retry" type="button" hidden>다시 시도</button></p>
+        <div id="webchat"></div>
       </section>
     </main>
 
-    <aside class="chat" id="chat" aria-label="AI 보조 패널">
-      <div class="chat-head">AI 보조 패널<button class="ghost close" id="chatClose" type="button">닫기</button></div>
-      <p id="status" role="status" aria-live="polite"><span id="statusText">채팅에 연결하는 중입니다...</span><button id="retry" type="button" hidden>다시 시도</button></p>
-      <div id="webchat"></div>
+    <aside class="result" id="result" aria-label="결과 패널">
+      <div class="result-head">결과 패널<button class="ghost close" id="resultClose" type="button" aria-label="결과 패널 접기">접기 ›</button></div>
+      <div class="meta">
+        <span>PLC 제조사</span><b>Mitsubishi</b>
+        <span>GX Works</span><b>GX Works2 / GX Works3</b>
+        <span>CPU 모델</span><b>미지정</b>
+      </div>
+      <div class="tabs" role="tablist" aria-label="결과 종류">
+        <button type="button" role="tab" aria-selected="true" data-tab="all">전체 결과</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="code">PLC 코드</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="check">오류 검사</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="fix">자동 수정</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="ladder">래더 작화</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="drawing">도면 분석</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="labels">글로벌 라벨</button>
+      </div>
+      <div class="panels">
+        <div class="panel active" id="panel-all" role="tabpanel"><div class="empty" id="allEmpty">아직 AI 응답이 없습니다. 채팅에서 요청하면 에이전트의 실제 응답이 여기에 그대로 표시됩니다.</div><div id="allList"></div></div>
+        <div class="panel" id="panel-code" role="tabpanel"><div class="empty">PLC 코드 결과가 아직 없습니다. (응답 분류 기능은 이후 단계에서 구현됩니다.)</div></div>
+        <div class="panel" id="panel-check" role="tabpanel"><div class="empty">오류 검사 결과가 아직 없습니다. 실제로 검사하지 않은 항목은 완료로 표시하지 않습니다.</div></div>
+        <div class="panel" id="panel-fix" role="tabpanel"><div class="empty">수정 전/후 코드가 아직 없습니다.</div></div>
+        <div class="panel" id="panel-ladder" role="tabpanel"><div class="empty">래더 작화 미리보기는 아직 구현되지 않았습니다.</div></div>
+        <div class="panel" id="panel-drawing" role="tabpanel"><div class="empty">도면 분석 결과가 아직 없습니다.</div></div>
+        <div class="panel" id="panel-labels" role="tabpanel"><div class="empty">글로벌 라벨 / I/O 테이블이 아직 없습니다.</div></div>
+      </div>
     </aside>
   </div>
-  <button class="fab" id="fab" type="button">AI 채팅</button>
+  <button class="rbtn" id="resultOpenDesktop" type="button" aria-label="결과 패널 펼치기">‹ 결과</button>
+  <button class="fab" id="fab" type="button">결과 패널</button>
 
   <script src="https://cdn.botframework.com/botframework-webchat/4.18.0/webchat.js"></script>
   <script src="config.js"></script>
-  <script>
-    const { BROKER_URL, SEALED } = window.PANELLAB_CONFIG || {};
-    const status = document.getElementById("status");
-    const statusText = document.getElementById("statusText");
-    const retryButton = document.getElementById("retry");
-    const conn = document.getElementById("conn");
-    let connecting = false;
-    let webChatStore = null;
-
-    function setConn(text, kind) {
-      conn.textContent = text;
-      conn.className = "conn " + (kind || "");
-    }
-    function showStatus(message, kind, retry) {
-      status.hidden = false;
-      status.className = kind || "";
-      statusText.textContent = message;
-      retryButton.hidden = !retry;
-      setConn(kind === "error" ? "연결 오류" : kind === "warn" ? "주의" : "연결 중", kind);
-    }
-    function showError(message) { showStatus(message, "error", true); }
-
-    // ConnectionStatus: 0 Uninitialized, 1 Connecting, 2 Online, 3 ExpiredToken, 4 FailedToConnect, 5 Ended
-    function watchConnection(directLine) {
-      directLine.connectionStatus$.subscribe({
-        next: (s) => {
-          if (s === 1) showStatus("채팅에 연결하는 중입니다...");
-          else if (s === 2) { status.hidden = true; setConn("연결됨", "online"); }
-          else if (s === 3) showStatus("연결 토큰이 만료되었습니다. 다시 시도해 주세요.", "error", true);
-          else if (s === 4) showStatus("채팅 서버에 연결하지 못했습니다. 네트워크를 확인해 주세요.", "error", true);
-          else if (s === 5) showStatus("대화가 종료되었습니다.", "warn", true);
-        }
-      });
-    }
-
-    async function connect() {
-      if (connecting) return;
-      connecting = true;
-      try {
-        await start();
-      } finally {
-        connecting = false;
-      }
-    }
-
-    async function start() {
-      showStatus("채팅에 연결하는 중입니다...");
-      if (!BROKER_URL || !SEALED) {
-        showError("설정(config.js)을 찾을 수 없습니다. config.example.js를 참고해 주세요.");
-        return;
-      }
-      if (!window.WebChat ||
-          typeof WebChat.createDirectLine !== "function" ||
-          typeof WebChat.renderWebChat !== "function") {
-        showError("채팅 구성 요소를 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.");
-        return;
-      }
-
-      let response;
-      try {
-        // Keep this a simple CORS request; the broker may not support preflight.
-        response = await fetch(BROKER_URL, {
-          method: "POST",
-          body: JSON.stringify({ sealed: SEALED })
-        });
-      } catch {
-        showError("서버에 연결하지 못했습니다. 네트워크와 배포 주소를 확인해 주세요.");
-        return;
-      }
-      if (!response.ok) {
-        showError("서버가 연결 요청을 처리하지 못했습니다 (HTTP " + response.status + ").");
-        return;
-      }
-
-      let data;
-      try {
-        data = await response.json();
-      } catch {
-        showError("서버 응답을 읽을 수 없습니다. 잠시 후 다시 시도해 주세요.");
-        return;
-      }
-      if (!data || typeof data.token !== "string" || !data.token.trim()) {
-        showError("서버에서 연결 토큰을 받지 못했습니다. 암호와 배포 주소를 확인해 주세요.");
-        return;
-      }
-
-      try {
-        const directLine = WebChat.createDirectLine({ token: data.token });
-        watchConnection(directLine);
-        directLine.postActivity({
-          type: "event", name: "startConversation", from: { id: "user" }
-        }).subscribe({
-          error: () => showStatus("첫 인사를 요청하지 못했습니다. 채팅창에 메시지를 입력해 주세요.", "warn", false)
-        });
-        const root = document.getElementById("webchat");
-        root.replaceChildren();
-        webChatStore = WebChat.createStore();
-        WebChat.renderWebChat({
-          directLine,
-          store: webChatStore,
-          locale: "ko-KR",
-          styleOptions: {
-            rootHeight: "100%",
-            rootWidth: "100%",
-            hideUploadButton: false,
-            sendBoxHeight: 48,
-            bubbleMaxWidth: 560,
-            accent: "#2563eb"
-          }
-        }, root);
-      } catch {
-        showError("채팅을 시작하지 못했습니다. 새로고침 후 다시 시도해 주세요.");
-      }
-    }
-
-    retryButton.addEventListener("click", connect);
-    connect();
-
-    // ---- Workspace UI (does not touch the Direct Line connection) ----
-    const body = document.body;
-    const titles = {
-      home: "통합 작업실", write: "PLC 코드 작성", analyze: "PLC 오류 분석", fix: "PLC 오류 수정",
-      ladder: "래더 작화", drawing: "도면 분석", project: "프로젝트 관리", history: "작업 기록", help: "설정 및 도움말"
-    };
-
-    function showView(name) {
-      document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + name));
-      document.querySelectorAll(".sidebar button").forEach(b => b.classList.toggle("active", b.dataset.view === name));
-      body.classList.remove("menu-open");
-      document.getElementById("main").scrollTop = 0;
-      if (name === "history") renderHistory();
-      document.title = "PanelLab · " + titles[name];
-    }
-    document.querySelectorAll("[data-view]").forEach(el => el.addEventListener("click", () => showView(el.dataset.view)));
-
-    document.getElementById("menuBtn").addEventListener("click", () => body.classList.toggle("menu-open"));
-    document.getElementById("backdrop").addEventListener("click", () => body.classList.remove("menu-open"));
-    document.getElementById("fab").addEventListener("click", () => body.classList.add("chat-open"));
-    document.getElementById("chatClose").addEventListener("click", () => body.classList.remove("chat-open"));
-
-    // Prefill the chat send box; the user reviews and sends it themselves.
-    const prompts = {
-      write: { src: "writeReq", head: "다음 요구사항에 맞는 PLC 코드를 작성해 주세요.\n" },
-      analyze: { src: "analyzeCode", head: "다음 PLC 코드/오류를 분석해 주세요.\n" },
-      fix: { src: "fixCode", head: "다음 PLC 코드의 오류를 수정해 주세요.\n" },
-      drawing: { src: null, head: "첨부한 도면을 분석해 주세요." }
-    };
-    function loadJSON(key, fallback) {
-      try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-    }
-    function addHistory(kind, text) {
-      const list = loadJSON("panellab.history", []);
-      list.unshift({ kind, text: text.slice(0, 200), at: new Date().toLocaleString("ko-KR") });
-      try { localStorage.setItem("panellab.history", JSON.stringify(list.slice(0, 50))); } catch {}
-    }
-    document.querySelectorAll("[data-send]").forEach(btn => btn.addEventListener("click", () => {
-      const p = prompts[btn.dataset.send];
-      const extra = p.src ? document.getElementById(p.src).value.trim() : "";
-      if (p.src && !extra) { alert("내용을 입력해 주세요."); return; }
-      if (!webChatStore) { alert("채팅이 아직 연결되지 않았습니다. 연결 상태를 확인해 주세요."); return; }
-      const text = p.head + extra;
-      webChatStore.dispatch({ type: "WEB_CHAT/SET_SEND_BOX", payload: { text } });
-      addHistory(titles[btn.dataset.send], text);
-      body.classList.add("chat-open");
-    }));
-
-    function renderHistory() {
-      const box = document.getElementById("historyList");
-      const list = loadJSON("panellab.history", []);
-      box.replaceChildren();
-      if (!list.length) { box.textContent = "기록이 없습니다."; return; }
-      list.forEach(item => {
-        const d = document.createElement("div"); d.className = "log-item";
-        d.textContent = item.kind;
-        const s = document.createElement("small"); s.textContent = item.at + " · " + item.text;
-        d.appendChild(s); box.appendChild(d);
-      });
-    }
-    document.getElementById("clearHistory").addEventListener("click", () => {
-      localStorage.removeItem("panellab.history"); renderHistory();
-    });
-
-    const projectInput = document.getElementById("projectInput");
-    const projectName = document.getElementById("projectName");
-    function applyProject() {
-      const n = localStorage.getItem("panellab.project") || "";
-      projectName.textContent = n || "미지정"; projectInput.value = n;
-    }
-    document.getElementById("saveProject").addEventListener("click", () => {
-      localStorage.setItem("panellab.project", projectInput.value.trim()); applyProject();
-    });
-    applyProject();
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
